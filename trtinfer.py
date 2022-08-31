@@ -78,7 +78,7 @@ class TRTClassifier(object):
 
 		return img
 
-	def infer(self, batch, transfer=False, benchmark=False):
+	def infer(self, batch, transfer=False, benchmark=False, sh=None):
 		"""
 		image: unresized,
 		accepts resized & normalized pytorch tensor as input
@@ -90,11 +90,19 @@ class TRTClassifier(object):
 			cuda.memcpy_htod_async(self.d_input, intensor, self.stream)
 		else:
 			intensor=batch
-			inloc=int(batch.data_ptr()) #ctypes.c_void_p()
-			self.bindings=[inloc, self.bindings[1]]
+			inloc=(batch.data_ptr()) #ctypes.c_void_p()
+			self.bindings=[(inloc), self.bindings[1]]
 		
-		self.context.execute_async_v2(self.bindings, self.stream.handle, None)
-		cuda.memcpy_dtoh_async(self.output, self.d_output, self.stream)
+		sth= self.stream.handle# if sh is None else sh.cuda_stream
+		ret=self.context.execute_async_v2(self.bindings, sth, None)
+		#ret=self.context.execute_v2(self.bindings)
+		# if not ret:
+		# 	print('TRT Inference unsuccessful')
+		# else:
+		# 	print('Inference OK')
+		st= self.stream# if sh is None else sh.handle
+		cuda.memcpy_dtoh_async(self.output, self.d_output, st)
+		#cuda.memcpy_dtoh(self.output, self.d_output)
 
 		self.stream.synchronize()
 		
