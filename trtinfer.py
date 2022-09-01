@@ -1,5 +1,4 @@
 import argparse
-from segcolors import colors
 import numpy as np
 import tensorrt as trt
 import pycuda.driver as cuda
@@ -21,7 +20,8 @@ class TRTClassifier(object):
 		device='GPU', 
 		max_batch_size=128, 
 		calibrator=None, 
-		dla_core=0
+		dla_core=0,
+		stream=None
 		):
 		self.onnxpath=onnxpath
 		self.enginepath=onnxpath+f'.{precision}.{device}.{dla_core}.{max_batch_size}.trt'
@@ -55,6 +55,7 @@ class TRTClassifier(object):
 		self.trt2np_dtype={'FLOAT':np.float32, 'HALF':np.float16, 'INT8':np.int8}
 		self.dtype = np.float32 #self.trt2np_dtype[self.engine.get_binding_dtype(0).name]
 		samplein=np.zeros((max_batch_size,imgchannels,self.in_h,self.in_w), dtype=self.dtype)
+		self.stream=cuda.Stream()
 		self.allocate_buffers(samplein)
 
 	def allocate_buffers(self, image):
@@ -64,8 +65,6 @@ class TRTClassifier(object):
 		self.d_output=cuda.mem_alloc(self.output.nbytes)
 
 		self.bindings=[int(self.d_input), int(self.d_output)]
-		
-		self.stream=cuda.Stream()
 
 	def preprocess(self, batch):
 		img=cv2.resize(img,(self.in_w,self.in_h))
@@ -85,23 +84,22 @@ class TRTClassifier(object):
 		"""
 		start=time.time()
 		if transfer:
-			intensor=batch.to('cpu').numpy()
+			intensor=batch.to('cpu').detach().numpy()
 			#potentially no need of this
-			cuda.memcpy_htod_async(self.d_input, intensor, self.stream)
+			#cuda.memcpy_htod_async(self.d_input, intensor, self.stream.cuda_stream)
+			cuda.memcpy_htod(self.d_input, intensor)
 		else:
 			intensor=batch
 			inloc=(batch.data_ptr()) #ctypes.c_void_p()
 			self.bindings=[(inloc), self.bindings[1]]
 		
-		sth= self.stream.handle# if sh is None else sh.cuda_stream
-		ret=self.context.execute_async_v2(self.bindings, sth, None)
+		
+		ret=self.context.execute_async_v2(self.bindings, self.stream.handle, None)
 		#ret=self.context.execute_v2(self.bindings)
-		# if not ret:
-		# 	print('TRT Inference unsuccessful')
-		# else:
-		# 	print('Inference OK')
-		st= self.stream# if sh is None else sh.handle
-		cuda.memcpy_dtoh_async(self.output, self.d_output, st)
+		if not ret:
+			print('TRT Inference unsuccessful')
+
+		cuda.memcpy_dtoh_async(self.output, self.d_output, self.stream)
 		#cuda.memcpy_dtoh(self.output, self.d_output)
 
 		self.stream.synchronize()
