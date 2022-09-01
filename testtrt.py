@@ -2,10 +2,11 @@ import trtinfer
 import sys
 import torch
 import torchvision.models as models
+sys.path.insert(0, '../simple_vit/')
 
 BATCHSIZE=128 if len(sys.argv)==1 else int(sys.argv[1])
 
-tvmodel=models.resnet152(pretrained=True).eval()
+tvmodel=models.resnet152(pretrained=True).eval().cuda()
 
 clsr=trtinfer.TRTClassifier(
 		'resnet152_bs{}.onnx'.format(BATCHSIZE),
@@ -31,16 +32,16 @@ x,y = next(it)
 
 ix=0
 for x,y in it:
-	#x=x.cuda()
+	x=x.cuda()
 	#y=y.cuda()
 	#sh=torch.cuda.current_stream()
 	clsr.infer(x, benchmark=True, transfer=True)#, sh=sh)
 	trtout=clsr.output.argmax(axis=1)
 	#print('accuracy=',(trtout == y.numpy()).sum())
 	with torch.no_grad():
-		tvout=tvmodel(x)
+		tvout=tvmodel(x).to('cpu')
 		trtp=torch.nn.functional.softmax(torch.tensor(clsr.output), dim=1)
-		tvp=torch.nn.functional.softmax(tvout)
+		tvp=torch.nn.functional.softmax(tvout, dim=1)
 		diff=abs(trtp-tvp).sum(axis=1).mean().item()
 		tvout=tvout.numpy().argmax(axis=1)
 
