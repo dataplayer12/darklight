@@ -21,7 +21,7 @@ class TRTClassifier(object):
 		max_batch_size=128, 
 		calibrator=None, 
 		dla_core=0,
-		stream=None
+		use_dynamic_shapes=False
 		):
 		self.onnxpath=onnxpath
 		self.enginepath=onnxpath+f'.{precision}.{device}.{dla_core}.{max_batch_size}.trt'
@@ -33,7 +33,7 @@ class TRTClassifier(object):
 		
 		self.in_w=insize[0]
 		self.in_h=insize[1] #width, height of input images
-
+		self.in_ch=imgchannels
 		#here we specify very important engine build flags
 		self.maxworkspace=maxworkspace
 		self.max_batch_size=max_batch_size
@@ -49,14 +49,18 @@ class TRTClassifier(object):
 		self.calibrator=calibrator #used only for INT8 precision
 		self.allowGPUFallback=3 #used only if DLA is selected
 		
+		self.has_dynamic_shapes=use_dynamic_shapes
 		self.engine, self.logger= self.parse_or_load()
 		
 		self.context=self.engine.create_execution_context()
 		self.trt2np_dtype={'FLOAT':np.float32, 'HALF':np.float16, 'INT8':np.int8}
 		self.dtype = np.float32 #self.trt2np_dtype[self.engine.get_binding_dtype(0).name]
-		samplein=np.zeros((max_batch_size,imgchannels,self.in_h,self.in_w), dtype=self.dtype)
+		samplein=np.zeros((max_batch_size,self.in_ch,self.in_h,self.in_w), dtype=self.dtype)
 		self.stream=cuda.Stream()
 		self.allocate_buffers(samplein)
+
+		if self.has_dynamic_shapes:
+			self.context.set_optimization_profile_async(0, self.stream.handle)
 
 	def allocate_buffers(self, image):
 		pass
@@ -85,6 +89,8 @@ class TRTClassifier(object):
 		start=time.time()
 		if transfer:
 			intensor=batch.to('cpu').detach().numpy()
+			if self.has_dynamic_shapes:
+				self.context.set_binding_shape(0, intensor.shape)
 			#potentially no need of this
 			#cuda.memcpy_htod_async(self.d_input, intensor, self.stream.cuda_stream)
 			cuda.memcpy_htod(self.d_input, intensor)
@@ -92,7 +98,6 @@ class TRTClassifier(object):
 			intensor=batch
 			inloc=(batch.data_ptr()) #ctypes.c_void_p()
 			self.bindings=[(inloc), self.bindings[1]]
-		
 		
 		ret=self.context.execute_async_v2(self.bindings, self.stream.handle, None)
 		#ret=self.context.execute_v2(self.bindings)
@@ -156,9 +161,9 @@ class TRTClassifier(object):
 				
 				#since the onnx file was exported with an explicit batch dim,
 				#we need to tell this to the builder. We do that with EXPLICIT_BATCH flag
-				
+				#network_flag
 				with builder.create_network(network_flag) as net:
-				
+					
 					with trt.OnnxParser(net, logger) as p:
 						#create onnx parser which will read onnx file and
 						#populate the network object `net`					
@@ -173,13 +178,22 @@ class TRTClassifier(object):
 						net.get_output(0).dtype=trt.DataType.FLOAT
 						#we set the inputs and outputs to be float16 type to enable
 						#maximum fp16 acceleration. Also helps for int8
-						
+
 						config=builder.create_builder_config()
 						#we specify all the important parameters like precision, 
 						#device type, fallback in config object
-
 						config.max_workspace_size = self.maxworkspace
 
+						if self.has_dynamic_shapes:
+							profile=builder.create_optimization_profile()
+
+							shapemin=(1, self.in_ch, self.in_w, self.in_h) #minimum size for 
+							shapeopt=(self.max_batch_size, self.in_ch, self.in_w, self.in_h)
+							shapemax=(self.max_batch_size, self.in_ch, self.in_w, self.in_h)
+
+							profile.set_shape('img', shapemin, shapeopt, shapemax)							
+							config.add_optimization_profile(profile)
+						
 						if self.precision_str in ['FP16', 'INT8']:
 							config.flags = ((1<<self.precision)|(1<<self.allowGPUFallback))
 							config.DLA_core=self.dla_core
