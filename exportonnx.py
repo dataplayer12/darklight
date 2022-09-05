@@ -14,6 +14,10 @@ x=torch.randn(BATCHSIZE,3,224,224)
 
 inputn=['img']
 outputn=['probs']
-#dynamic_axes = {'img': {0: 'bsize'}, 'probs': {0: 'bsize'}}
+dynamic_axes = {'img': {0: 'bsize'}, 'probs': {0: 'bsize'}}
 
-torch.onnx.export(net, x, 'resnet152_bs{}.onnx'.format(BATCHSIZE),input_names=inputn, output_names=outputn)#, dynamic_axes=dynamic_axes)
+torch.onnx.export(net, x, 'resnet152_bs{}.onnx'.format(BATCHSIZE),input_names=inputn, output_names=outputn, dynamic_axes=dynamic_axes)
+
+# It is not enough to use dynamic_axes in onnx. If you want TRT engine 
+# to support all sizes from 1...BATCHSIZE, please set use_dynamic_shapes
+# when constructing TRTClassifier to True
