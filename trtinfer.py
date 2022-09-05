@@ -23,6 +23,31 @@ class TRTClassifier(object):
 		dla_core=0,
 		use_dynamic_shapes=False
 		):
+		'''
+		Constructs an inference engine for classification networks.
+		This class is intended to accelerate training (yes, training)
+		using knowledge transfer, but is versatile enough to be used standalone
+		just for inference, and includes support for 
+		* dynamic batch sizes, 
+		* INT8 calibration,
+		* DLA support on Jetson devices, and 
+		* inference on live camera or video
+
+		onnxpath: (string) path of input onnx file, other files like uff are not supported
+		nclasses: (int) number of classes in onnx network
+		insize: (tuple of int,int) will be used to construct engine, dynamic shapes in
+		height and width are not supported by this class
+		imgchannels: (int) usually 3, could be 1 for something like MNIST
+		maxworkspace: (int) max workspace in bytes
+		precision: string, FP32 or FP16 or INT8
+		device: string, GPU or DLA, note that DLA is only available on Jetson devices
+		max_batch_size: (int) maximum batch size that can be handled by this engine
+		calibrator: an object of calibrator class, only needed for INT8 precision
+		dla_core: 0 or 1, used only on DLA on Jetson devices
+		use_dynamic_shapes: (bool) set to False if you want to infer on fixed batch size
+		setting to True allows greater flexibility, but could be slower
+		ToDo: benchmark how much slower and if at all
+		'''
 		self.onnxpath=onnxpath
 		self.enginepath=onnxpath+f'.{precision}.{device}.{dla_core}.{max_batch_size}.trt'
 		#filename to be used for saving and reading engines
@@ -113,13 +138,19 @@ class TRTClassifier(object):
 			duration=(time.time()-start)
 			return duration
 
-	def infer_async(self, intensor):
-		#intensor should be preprocessed tensor
-		cuda.memcpy_htod_async(self.d_input, intensor, self.stream)
-		self.context.execute_async_v2(self.bindings, self.stream.handle, None)
-		cuda.memcpy_dtoh_async(self.output, self.d_output, self.stream)
+	def draw(self, frame):
+		'''
+		ToDo: Implement this
+		'''
+		return frame
 
 	def infervideo(self, infile):
+		"""
+		Inference on video file
+		Can also be used for live inference on camera,
+		by passing the index of camera,
+		ex. 0 or uri like '/dev/video0'
+		"""
 		src=cv2.VideoCapture(infile)
 		ret,frame=src.read()
 		fps=0.0
@@ -130,10 +161,10 @@ class TRTClassifier(object):
 		while ret:
 			duration=self.infer(frame, benchmark=True)
 			drawn=self.draw(frame)
-			#cv2.imshow('segmented', drawn)
-			#k=cv2.waitKey(1)
-			#if k==ord('q'):
-			#	break
+			cv2.imshow('classified', drawn)
+			k=cv2.waitKey(1)
+			if k==ord('q'):
+				break
 
 			fps=0.9*fps+0.1/(duration)
 			print('FPS=:{:.2f}'.format(fps))
