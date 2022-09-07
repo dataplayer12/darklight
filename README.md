@@ -14,8 +14,47 @@ How to achieve the best techer inference and student training performance on a G
 - Use logits from TensorRT inference to train the student network.
 
 # Environment
-- Either use a NGC docker container with a recent version of PyTorch, or
-- Follow the [official guide](https://docs.nvidia.com/deeplearning/tensorrt/install-guide/index.html#installing-pip) to install TensorRT in your environment.
+
+- Recommended method
+This project uses pytorch CUDA, tensorrt>=8, opencv and pycuda. The recommended way to get all these is to use an NGC docker container with a recent version of PyTorch.
+
+```Shell
+sudo docker run -it --ipc=host --net=host --gpus all nvcr.io/nvidia/pytorch:22.08-py3 /bin/bash
+#if you want to load an external disk to the container, use the --volume switch
+
+#Once the container is up and running, install pycuda
+pip install pycuda
+git clone https://github.com/dataplayer12/efficient-knowledge-distillation.git
+cd efficient-knowledge-distillation
+
+#Test tensorRT engine with
+python3 testtrt.py
+```
+
+- Custom env
+
+If you want to use your own environment with PyTorch, you need to get TensorRT and pycuda.
+
+Follow the [official guide](https://docs.nvidia.com/deeplearning/tensorrt/install-guide/index.html#installing-pip) to download TensorRT deb file and install it with the script provided in this repo. Finally install pycuda
+```Shell
+git clone https://github.com/dataplayer12/efficient-knowledge-distillation.git
+cd efficient-knowledge-distillation
+bash install_trt.sh
+# if needed modify the version of deb file in the script before running.
+# This script will also install pycuda
+# this might fail for a number of reasons which is why NGC container is recommended
+
+python3 testtrt.py #test if everything works
+```
 
 # Status
-This is work in progress. Stay tuned...
+- [x] The core TensorRT functionality works well (can also be used for pure inference) 
+- [x] TensorRT accelerated training is verified (accelerate inference on teacher network with TRT)
+- [x] Implemented Soft Target Loss by [Hinton et. al.](https://arxiv.org/abs/1503.02531)
+- [x] Implemented Hard Label Distillation by [Touvron et. al.](https://arxiv.org/abs/2012.12877)
+
+# ToDo
+- [ ] Improve TRT inference and training by transfering input only once.
+- [ ] Benchmark dynamic shapes on TRT
+- [ ] Better documentation
+- [ ] Make PyPi package
