@@ -225,18 +225,22 @@ class TRTClassifier(object):
                         config.max_workspace_size = self.maxworkspace
 
                         if self.has_dynamic_shapes:
-                            profile = builder.create_optimization_profile()
-
                             shapemin = (1, self.in_ch, self.in_w,
-                                        self.in_h)  # minimum size for
-                            shapeopt = (self.max_batch_size,
-                                        self.in_ch, self.in_w, self.in_h)
-                            shapemax = (self.max_batch_size,
-                                        self.in_ch, self.in_w, self.in_h)
+                                        self.in_h)
+                        else:
+                            shapemin = (self.max_batch_size, self.in_ch, self.in_w,
+                                        self.in_h)
 
-                            profile.set_shape(
-                                'img', shapemin, shapeopt, shapemax)
-                            config.add_optimization_profile(profile)
+                        profile = builder.create_optimization_profile()
+
+                        shapeopt = (self.max_batch_size,
+                                    self.in_ch, self.in_w, self.in_h)
+                        shapemax = (self.max_batch_size,
+                                    self.in_ch, self.in_w, self.in_h)
+
+                        profile.set_shape(
+                            'img', shapemin, shapeopt, shapemax)
+                        config.add_optimization_profile(profile)
 
                         if self.precision_str in ['FP16', 'INT8']:
                             config.flags = ((1 << self.precision) | (
