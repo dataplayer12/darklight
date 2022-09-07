@@ -6,17 +6,20 @@ sys.path.insert(0, '../simple_vit/')
 
 BATCHSIZE=128 if len(sys.argv)==1 else int(sys.argv[1])
 
-tvmodel=models.resnet152(pretrained=True).eval().cuda()
+tvmodel=models.resnet152(pretrained=True).eval()
+calibrator=trtinfer.Calibrator('./val2017/', 100, input_size=(224,224))
 
 clsr=trtinfer.TRTClassifier(
-		'resnet152_bs{}.onnx'.format(BATCHSIZE),
+		'resnet152.onnx',
 		nclasses=1000,
 		insize=(224,224),
 		imgchannels=3,
 		maxworkspace=(1<<27), 
-		precision='FP32', 
+		precision='FP16',
+		calibrator=calibrator,
 		device='GPU', 
-		max_batch_size=128
+		max_batch_size=BATCHSIZE,
+		use_dynamic_shapes=False
 		)
 
 from dataset import ImageNetManager
@@ -32,7 +35,7 @@ x,y = next(it)
 
 ix=0
 for x,y in it:
-	x=x.cuda()
+	#x=x.cuda()
 	#y=y.cuda()
 	#sh=torch.cuda.current_stream()
 	clsr.infer(x, benchmark=True, transfer=True)#, sh=sh)
