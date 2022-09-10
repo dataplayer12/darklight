@@ -15,6 +15,12 @@ How to achieve the best techer inference and student training performance on a G
 
 # Environment
 
+- Install with `pip`
+DarkLight can now be installed via PyPi (pip) with
+```Shell
+pip install darklight
+```
+
 - Recommended method
 This project uses pytorch CUDA, tensorrt>=8, opencv and pycuda. The recommended way to get all these is to use an NGC docker container with a recent version of PyTorch.
 
