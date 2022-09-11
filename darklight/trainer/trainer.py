@@ -8,16 +8,10 @@ import os
 import pdb
 import sys
 
-from dataset.dataset import ImageNetManager
-from trtengine import TRTClassifier
-
 try:
 	from apex import amp
 except ImportError:
 	print('AMP not found')
-
-use_dark_knowledge=False
-BATCH_SIZE=192
 
 class StudentTrainer(object):
 	def __init__(self, net, dm, teacher_onnx=None):
@@ -33,7 +27,7 @@ class StudentTrainer(object):
 		self.net=net.to(self.device)
 		self.dm=dm
 		self.writer=SummaryWriter()
-		self.criterion=SoftLabelsLoss(10) if use_dark_knowledge else nn.CrossEntropyLoss()
+		self.criterion=SoftLabelsLoss(10) if self.use_dark_knowledge else nn.CrossEntropyLoss()
 		self.optimizer=optim.AdamW(self.net.parameters(), lr=1e-5, weight_decay=0.05)
 		self.scheduler=torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
 			self.optimizer,
@@ -44,7 +38,7 @@ class StudentTrainer(object):
 		self.savepath=None
 		self.get_accuracy=lambda p,y: (torch.argmax(p, dim=1) == y).to(torch.float).mean().item()
 
-		if use_dark_knowledge:
+		if self.use_dark_knowledge:
 			self.trtengine=TRTClassifier(
 			'resnet152_bs{}.onnx'.format(BATCH_SIZE),
 			nclasses=1000,
@@ -104,7 +98,7 @@ class StudentTrainer(object):
 			for ix, (x,y) in enumerate(train_loader):
 				self.optimizer.zero_grad()
 
-				if use_dark_knowledge:
+				if self.use_dark_knowledge:
 					self.trtengine.infer(x, benchmark=False, transfer=True)
 					#print('num_c=', (self.trtengine.output.argmax(axis=1)==y.numpy()).sum())
 					yt=torch.tensor(self.trtengine.output)
@@ -115,7 +109,7 @@ class StudentTrainer(object):
 				
 				pred = self.net(x)
 
-				if use_dark_knowledge:
+				if self.use_dark_knowledge:
 					loss = self.criterion(pred, yt, y)
 				else:
 					loss = self.criterion(pred, y)
@@ -140,7 +134,7 @@ class StudentTrainer(object):
 					self.evaluate_model(step)
 					self.net.train()
 
-			if use_dark_knowledge:
+			if self.use_dark_knowledge:
 				oldt=self.criterion.temperature.item()
 				newt= 1+0.9*(oldt-1)
 				self.criterion.temperature= torch.tensor(newt)
@@ -157,6 +151,8 @@ class StudentTrainer(object):
 
 if __name__=="__main__":
 	import timm
+	from ..dataset.dataset import ImageNetManager
+	from ..trtengine import TRTClassifier
 	net=timm.create_model('mobilevit_s', pretrained=False)
 	nparams=sum(p.numel() for p in net.parameters() if p.requires_grad)
 	print(f'Created model with {nparams} parameters')

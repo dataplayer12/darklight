@@ -8,14 +8,19 @@ def readme():
 
 setup(
     name="darklight",
-    version="0.1",
+    version="0.2",
     description="A library for accelerating knowledge distillation training",
     long_description=readme(),
     long_description_content_type="text/markdown",
-    url="http://www.jaiyam.com",
+    url="https://github.com/dataplayer12/darklight",
+    author="Jaiyam Sharma",
+    author_email="jaiyamsharma@gmail.com",
     packages=find_packages(),
     classifiers=[
+        "Development Status :: 3 - Alpha",
+        "Intended Audience :: Developers",
         "Programming Language :: Python :: 3",
+        "Topic :: Machine Learning :: Deep Learning",
         "License :: OSI Approved :: MIT License",
     ],
     install_requires=["numpy","torch"],
