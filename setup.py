@@ -20,7 +20,7 @@ setup(
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
         "Programming Language :: Python :: 3",
-        "Topic :: Machine Learning :: Deep Learning",
+        "Topic :: Software Development :: Deep Learning",
         "License :: OSI Approved :: MIT License",
     ],
     install_requires=["numpy","torch"],
