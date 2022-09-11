@@ -3,7 +3,7 @@ import os
 import torchvision.models as models
 import sys
 
-def exportonnx(net, outfile, bsize, hw=[224,224])
+def exportonnx(net, outfile, bsize, hw=[224,224]):
     BATCHSIZE= bsize #128 if len(sys.argv)==1 else int(sys.argv[1])
     
     print('Using batch size: ', BATCHSIZE)

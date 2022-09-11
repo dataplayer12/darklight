@@ -1,5 +1,4 @@
 import argparse
-from segcolors import colors
 import numpy as np
 import tensorrt as trt
 import pycuda.driver as cuda

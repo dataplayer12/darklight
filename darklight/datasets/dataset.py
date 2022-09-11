@@ -1,7 +1,7 @@
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms as T
 import torch
-from classes import IMAGENET2012_CLASSES
+from .classes import IMAGENET2012_CLASSES
 import os
 from PIL import Image
 import glob
