@@ -8,7 +8,7 @@ def readme():
 
 setup(
     name="darklight",
-    version="0.2",
+    version="0.3",
     description="A library for accelerating knowledge distillation training",
     long_description=readme(),
     long_description_content_type="text/markdown",
@@ -17,7 +17,7 @@ setup(
     author_email="jaiyamsharma@gmail.com",
     packages=find_packages(),
     classifiers=[
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
         "Programming Language :: Python :: 3",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
