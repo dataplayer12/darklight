@@ -132,7 +132,7 @@ class TRTClassifier(object):
 
         ret = self.context.execute_async_v2(
             self.bindings, self.stream.handle, None)
-        # ret=self.context.execute_v2(self.bindings)
+        
         if not ret:
             print('TRT Inference unsuccessful')
 
