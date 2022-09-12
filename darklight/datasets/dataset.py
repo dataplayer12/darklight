@@ -76,7 +76,7 @@ class ImageNet1k(Dataset):
 			return img_tensor, label
 
 class ImageNetManager(object):
-	def __init__(self, root, size=[256, 256], bsize=32):
+	def __init__(self, root, size=[224, 224], bsize=32):
 		self.root=root
 		self.size=size
 		self.bsize=bsize
