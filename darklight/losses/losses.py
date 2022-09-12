@@ -1,8 +1,9 @@
+import torch
 import torch.nn as nn
 
-class SoftLabelsLoss(nn.Module):
+class SoftLabelsDistillationLoss(nn.Module):
 	def __init__(self, temp=10, lamda=0.5):
-		super(SoftLabelsLoss, self).__init__()
+		super(SoftLabelsDistillationLoss, self).__init__()
 		self.register_buffer('temperature', torch.tensor(temp))
 		self.register_buffer('lamda', torch.tensor(lamda))
 		self.klloss=nn.KLDivLoss(reduction='batchmean')
@@ -23,7 +24,7 @@ class SoftLabelsLoss(nn.Module):
 
 class HardLabelDistillationLoss(nn.Module):
 	def __init__(self, lamda=0.5, smoothing=0.1):
-		super().__init__()
+		super(HardLabelDistillationLoss, self).__init__()
 		self.register_buffer('lamda', torch.tensor(lamda))
 		self.register_buffer('smoothing', torch.tensor(smoothing))
 
