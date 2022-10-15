@@ -9,6 +9,7 @@ import pdb
 import sys
 from ..losses.losses import SoftLabelsDistillationLoss, HardLabelDistillationLoss 
 from ..trtengine.clsengine import TRTClassifier
+from .timer import Timer
 try:
 	from apex import amp
 	has_amp=True
@@ -54,16 +55,14 @@ class StudentTrainer(object):
 			self.scheduler=opt_params['scheduler'](self.optimizer, **opt_params['skwargs'])
 			self.amplevel=opt_params['amplevel']
 			self.has_scheduler= True
-			#torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-			#	self.optimizer,
-			#	T_0=2,
-			#	T_mult=2
-			#	)
+			
 		self.trtengine=None
 		self.savepath=None
 		self.get_accuracy=lambda p,y: (torch.argmax(p, dim=1) == y).to(torch.float).mean().item()
 
 		if self.use_dark_knowledge:
+			self.stream=torch.cuda.Stream() #support multi-GPU
+
 			self.trtengine=TRTClassifier(
 			teacher_onnx,
 			nclasses=1000,
@@ -116,7 +115,6 @@ class StudentTrainer(object):
 		pass
 		eval_interval=1000
 		self.savepath=save
-		
 		train_loader = self.dm.train_loader #ignore test loader if any
 
 		self.net.to(self.device).train()
@@ -125,17 +123,22 @@ class StudentTrainer(object):
 			self.net, self.optimizer = amp.initialize(self.net, self.optimizer,
 										opt_level=self.amplevel, enabled=True)
 
+		self.net=nn.DataParallel(self.net) #support multi-GPU
+
 		step=rstep
 		
 		nbatches=len(train_loader)
+		timer=Timer()
 
 		for epoch in range(epochs):
-			estart=time.time()
+			timer.reset()
 			for ix, (x,y) in enumerate(train_loader):
 				self.optimizer.zero_grad()
 
 				if self.use_dark_knowledge:
-					self.trtengine.infer(x, benchmark=False, transfer=True)
+					with torch.cuda.stream(self.stream):
+						#support multi-GPU
+						self.trtengine.infer(x, benchmark=False, transfer=True)
 					#print('num_c=', (self.trtengine.output.argmax(axis=1)==y.numpy()).sum())
 					yt=torch.tensor(self.trtengine.output)
 					yt=yt.to(self.device)
@@ -168,11 +171,12 @@ class StudentTrainer(object):
 				self.writer.add_scalar('Training Accuracy', acc, step)
 
 				if step%eval_interval==0:
-					ctime=time.time()
 					print('Step: {}, Training throughput: {:.2f} im/s, loss= {:.5f}'.format( 
-						step, (ix*self.dm.bsize)/(ctime-estart), loss.item()))
+						step, (ix*self.dm.bsize)/timer.tick(), loss.item()))
+					timer.pause()
 					self.evaluate_model(step)
 					self.net.train()
+					timer.unpause()
 
 			if self.use_dark_knowledge:
 				oldt=self.criterion.temperature.item()
@@ -180,8 +184,7 @@ class StudentTrainer(object):
 				self.criterion.temperature= torch.tensor(newt)
 
 			self.save(epoch)
-			eend=time.time()
-			print('Time taken for last epoch = {:.3f}'.format(eend-estart))
+			print('Time taken for last epoch = {:.3f}'.format(timer.tick(full=True)))
 
 	def save(self, epoch):
 		if self.savepath:
