@@ -75,14 +75,17 @@ opt_params={
 	'amplevel': None
 	}
 
-stream=torch.cuda.Stream()
 
-with torch.cuda.stream(stream):
-	#TensorRT inference engine is constructed for the teacher from onnx file
-	#CUDA stream scope ensures interoperability between pycuda, TensorRT and pytorch
-	trainer=dl.StudentTrainer(student, dm, 'rn152.onnx', opt_params=opt_params)
-	trainer.train(epochs=50, save='dltest_{}.pth')
+#TensorRT inference engine is constructed for the teacher from onnx file
+#CUDA stream scope ensures interoperability between pycuda, TensorRT and pytorch
+trainer=dl.StudentTrainer(student, dm, 'rn152.onnx', opt_params=opt_params)
+trainer.train(epochs=50, save='dltest_{}.pth')
 ```
+# Release Notes
+- v0.1: Alpha of alpha
+- v0.2: Working library
+- v0.3: Documentation added
+- v0.4: Support for multi-GPU training and stream creation is not required
 
 # Status
 - [x] Currently supports image classification KD.

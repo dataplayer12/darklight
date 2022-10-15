@@ -8,7 +8,7 @@ def readme():
 
 setup(
     name="darklight",
-    version="0.3",
+    version="0.4",
     description="A library for accelerating knowledge distillation training",
     long_description=readme(),
     long_description_content_type="text/markdown",
@@ -23,5 +23,5 @@ setup(
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
         "License :: OSI Approved :: MIT License",
     ],
-    install_requires=["numpy","torch"],
+    install_requires=["numpy", "torch", "pycuda"],
 )
