@@ -5,6 +5,7 @@ from .classes import IMAGENET2012_CLASSES
 import os
 from PIL import Image
 import glob
+import pycocotools
 
 class ImageNet1k(Dataset):
 	def __init__(self, root, dstype, size=[256, 256]):
@@ -99,6 +100,58 @@ class ImageNetManager(object):
 		tedata=ImageNet1k(self.root, 'test', self.size)
 		teloader=DataLoader(tedata, self.bsize, shuffle=True, num_workers=2)
 		return teloader
+
+class SegmentAnythingDataset(Dataset):
+	def __init__(self, root):
+		super(SegmentAnythingDataset, self).__init__()
+
+		img_pattern=f"{root}/images/*"
+		label_pattern=f"{root}/labels/*"
+
+		self.image_paths=glob.glob(img_pattern)
+		self.image_names=[f[f.rfind('/')+1:] for f in self.image_paths]
+		
+		self.label_paths=glob.glob(label_pattern)
+		self.label_names=[f[f.rfind('/')+1:] for f in self.label_paths]
+
+		self.input_transforms = self.random_transforms()
+		self.label_transforms
+
+	def __len__(self):
+		return len(self.image_paths)
+	
+	def random_transforms(self):
+		normalize_transform=T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+
+		affine=T.RandomAffine(degrees=5, translate=(0.05, 0.05))
+		hflip =T.RandomHorizontalFlip(p=0.7)
+		vflip =T.RandomVerticalFlip(p=0.7)
+		
+		blur=T.GaussianBlur(7) #kernel size 5x5
+
+		rt1=T.Compose([affine, T.ToTensor(), normalize_transform])
+		rt2=T.Compose([hflip, T.ToTensor(), normalize_transform])
+		rt3=T.Compose([vflip, T.ToTensor(), normalize_transform])
+		rt4=T.Compose([blur, T.ToTensor(), normalize_transform])
+
+		return [rt1, rt2, rt3, rt4]
+
+	def read_label(self, index):
+
+
+	def __getitem__(self, index):
+		imgpath=self.image_paths[index]
+		img=Image.open(imgpath)
+
+		rindex = torch.randint(0,4,[1,1]).item()
+		img_tensor=self.input_transforms[rindex](img)
+		label = self.read_label(index)
+		label = self.transform_label(label, rindex)
+
+		if self.labels is None:
+			return img_tensor
+		else:
+			return img_tensor, label
 
 if __name__=="__main__":
 	pass
