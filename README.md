@@ -93,6 +93,7 @@ trainer.train(epochs=50, save='dltest_{}.pth')
 - [x] TensorRT accelerated training is verified (accelerate inference on teacher network with TRT)
 - [x] Implemented Soft Target Loss by [Hinton et. al.](https://arxiv.org/abs/1503.02531)
 - [x] Implemented Hard Label Distillation by [Touvron et. al.](https://arxiv.org/abs/2012.12877)
+- [x] Implemented training with only teacher network i.e. unlabelled in-the-wild datasets
 
 # Immediate ToDos
 - [ ] Improve TRT inference and training by transfering input only once.
