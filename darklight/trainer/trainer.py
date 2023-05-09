@@ -111,9 +111,11 @@ class StudentTrainer(object):
 		if verbose:
 			print('Validation loss= {:.3f}, validation accuracy= {:.2f}'.format(avgloss, 100*avgacc))
 
-	def train(self, epochs, save, rstep=0):
-		pass
-		eval_interval=1000
+	def train(self, epochs, save, rstep=0, eval_interval=1000):
+		if not self.use_dark_knowledge and self.dm.is_train_wild:
+			raise NotImplementedError("Cannot train since neither a teacher network is present nor does the dataset have labels.")
+
+		eval_interval=eval_interval
 		self.savepath=save
 		train_loader = self.dm.train_loader #ignore test loader if any
 
@@ -132,8 +134,14 @@ class StudentTrainer(object):
 
 		for epoch in range(epochs):
 			timer.reset()
-			for ix, (x,y) in enumerate(train_loader):
+			for ix, img_label in enumerate(train_loader):
 				self.optimizer.zero_grad()
+
+				if self.dm.is_train_wild:
+					x = img_label
+					y = None # no labels are present in training data
+				else:
+					x,y = img_label
 
 				if self.use_dark_knowledge:
 					with torch.cuda.stream(self.stream):
@@ -144,7 +152,8 @@ class StudentTrainer(object):
 					yt=yt.to(self.device)
 
 				x=x.to(self.device) #transfer to GPU after trt inference
-				y=y.to(self.device)
+				if y is not None:
+					y=y.to(self.device)
 				
 				pred = self.net(x)
 

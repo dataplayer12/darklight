@@ -18,8 +18,13 @@ class SoftLabelsDistillationLoss(nn.Module):
 		model_probabilities=nn.functional.softmax(model_output/self.temperature, dim=1)
 		target_probabilities=nn.functional.softmax(dense_targets/self.temperature, dim=1)
 		kloss=self.klloss(torch.log(model_probabilities), target_probabilities)
-		celoss=self.celoss(model_output, class_targets)
-		loss= (1-self.lamda)*celoss+self.lamda*(self.temperature**2)*kloss
+		
+		if class_targets is None:
+			celoss=0
+			loss = (self.temperature**2)*kloss
+		else:
+			celoss=self.celoss(model_output, class_targets)
+			loss= (1-self.lamda)*celoss+self.lamda*(self.temperature**2)*kloss
 		return loss
 
 class HardLabelDistillationLoss(nn.Module):

@@ -8,23 +8,25 @@ import glob
 import pycocotools
 
 class ImageNet1k(Dataset):
-	def __init__(self, root, dstype, size=[256, 256]):
+	def __init__(self, root, dstype, size=[256, 256], extension="JPEG"):
 		"""
 		root: root directory of imagenet dataset
-		dstype: one of train, val, test
+		dstype: one of train, val, test or wild (if you dont want to use labels)
 		size: resize images to this shape
 		"""
 		super(ImageNet1k, self).__init__()
 
-		patterns={'train': f"{root}/train_images/*.JPEG",
-		'val': f"{root}/val_images/*.JPEG",
-		'test': f"{root}/test_images/*.JPEG"}
+		patterns={'train': f"{root}/train_images/*.{extension}",
+		'val': f"{root}/val_images/*.{extension}",
+		'test': f"{root}/test_images/*.{extension}",
+		'wild': f"{root}/train_images/*.{extension}"
+		}
 
 		self.image_paths=glob.glob(patterns[dstype])
 		self.image_names=[f[f.rfind('/')+1:] for f in self.image_paths]
 		
-		if dstype=='test':
-			self.labels=[]
+		if dstype == 'test' or dstype == 'wild':
+			self.labels = None
 		else:
 			self.label_synset=[f.split('.')[0].split('_')[-1] for f in self.image_names]
 			self.imagenet_synset, self.imagenet_descs=[], []
@@ -77,33 +79,43 @@ class ImageNet1k(Dataset):
 			return img_tensor, label
 
 class ImageNetManager(object):
-	def __init__(self, root, size=[224, 224], bsize=32):
+	'''
+	Creates and manages train/val/test datasets, dataloaders etc.
+	Use of in-the-wild (unlabelled) datasets is supported for training
+	but not for evaluation. Evaluation must always be imagenet like dataset
+	'''
+	def __init__(self, root, size=[224, 224], bsize=32, is_wild = False, num_workers=8, extension='JPEG'):
 		self.root=root
 		self.size=size
 		self.bsize=bsize
+		self.is_train_wild = is_wild
+		self.num_workers = num_workers
+		self.train_image_extension = extension
 		self.train_loader, self.valid_loader= self.get_train_val_iters()
 
 	def get_train_val_iters(self):
 		return self.get_train_iterator(), self.get_valid_iterator()
 
 	def get_train_iterator(self):
-		tdata=ImageNet1k(self.root, 'train', self.size)
-		tloader=DataLoader(tdata, self.bsize, shuffle=True, num_workers=8, prefetch_factor=16, drop_last=True)
+		dstype = 'wild' if self.is_train_wild else 'train'
+
+		tdata=ImageNet1k(self.root, dstype, self.size, self.train_image_extension)
+		tloader=DataLoader(tdata, self.bsize, shuffle=True, num_workers=self.num_workers, prefetch_factor=16, drop_last=True)
 		return tloader
 
 	def get_valid_iterator(self):
 		vdata=ImageNet1k(self.root, 'val', self.size)
-		vloader=DataLoader(vdata, self.bsize, shuffle=True, num_workers=2, prefetch_factor=16)
+		vloader=DataLoader(vdata, self.bsize, shuffle=True, num_workers=self.num_workers//2, prefetch_factor=16)
 		return vloader
 
 	def get_test_iterator(self):
 		tedata=ImageNet1k(self.root, 'test', self.size)
-		teloader=DataLoader(tedata, self.bsize, shuffle=True, num_workers=2)
+		teloader=DataLoader(tedata, self.bsize, shuffle=True, num_workers=self.num_workers//2)
 		return teloader
 
-class SegmentAnythingDataset(Dataset):
+class SegmentAnything(Dataset):
 	def __init__(self, root):
-		super(SegmentAnythingDataset, self).__init__()
+		super(SegmentAnything, self).__init__()
 
 		img_pattern=f"{root}/images/*"
 		label_pattern=f"{root}/labels/*"
