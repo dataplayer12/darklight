@@ -23,5 +23,5 @@ setup(
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
         "License :: OSI Approved :: MIT License",
     ],
-    install_requires=["numpy", "torch", "pycuda"],
+    install_requires=["numpy", "torch", "pycuda", "pycocotools"],
 )
